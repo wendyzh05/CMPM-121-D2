@@ -1,6 +1,13 @@
 import "./style.css";
+
+type Point = { x: number; y: number };
+type Stroke = Point[];
+type Drawing = Stroke[];
+
 type Cursor = { active: boolean; x: number; y: number };
 const cursor: Cursor = { active: false, x: 0, y: 0 };
+
+const drawing: Drawing = [];
 
 function createAppTitle(titleText: string): HTMLElement {
   const title = document.createElement("h1");
@@ -16,15 +23,38 @@ function createDrawingCanvas(width: number, height: number): HTMLCanvasElement {
   return canvas;
 }
 
+function redrawCanvas(ctx: CanvasRenderingContext2D, drawing: Drawing) {
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.strokeStyle = "black";
+  ctx.lineWidth = 2;
+
+  for (const stroke of drawing) {
+    const [first, ...rest] = stroke;
+    if (!first) continue;
+    if (rest.length === 0) continue;
+
+    ctx.beginPath();
+    ctx.moveTo(first.x, first.y);
+    for (const p of rest) {
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+  }
+}
+
 function initUI(): void {
   const app = document.createElement("div");
   app.id = "app";
   document.body.appendChild(app);
 
   const title = createAppTitle("Sticker Sketchpad");
-  const canvas = createDrawingCanvas(450, 450);
+  const canvas = createDrawingCanvas(256, 256);
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Failed to get 2D context");
+
+  canvas.addEventListener("drawing-changed", () => {
+    redrawCanvas(ctx, drawing);
+  });
 
   ctx.strokeStyle = "black";
   ctx.lineWidth = 2;
@@ -34,8 +64,8 @@ function initUI(): void {
 
   canvas.addEventListener("mousedown", (e: MouseEvent) => {
     cursor.active = true;
-    cursor.x = e.offsetX;
-    cursor.y = e.offsetY;
+    const newStroke: Stroke = [{ x: e.offsetX, y: e.offsetY }];
+    drawing.push(newStroke);
   });
 
   canvas.addEventListener("mouseup", () => {
@@ -44,14 +74,10 @@ function initUI(): void {
 
   canvas.addEventListener("mousemove", (e: MouseEvent) => {
     if (!cursor.active) return;
-
-    ctx.beginPath();
-    ctx.moveTo(cursor.x, cursor.y);
-    ctx.lineTo(e.offsetX, e.offsetY);
-    ctx.stroke();
-
-    cursor.x = e.offsetX;
-    cursor.y = e.offsetY;
+    const currentStroke = drawing[drawing.length - 1];
+    if (!currentStroke) return;
+    currentStroke.push({ x: e.offsetX, y: e.offsetY });
+    canvas.dispatchEvent(new Event("drawing-changed"));
   });
 
   const clearButton = document.createElement("button");
@@ -59,7 +85,8 @@ function initUI(): void {
   document.body.append(clearButton);
 
   clearButton.addEventListener("click", () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawing.length = 0;
+    canvas.dispatchEvent(new Event("drawing-changed"));
   });
 }
 initUI();
