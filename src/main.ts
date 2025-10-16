@@ -8,6 +8,7 @@ type Cursor = { active: boolean; x: number; y: number };
 const cursor: Cursor = { active: false, x: 0, y: 0 };
 
 const drawing: Drawing = [];
+const redoStack: Drawing = [];
 
 function createAppTitle(titleText: string): HTMLElement {
   const title = document.createElement("h1");
@@ -65,6 +66,7 @@ function initUI(): void {
   canvas.addEventListener("mousedown", (e: MouseEvent) => {
     cursor.active = true;
     const newStroke: Stroke = [{ x: e.offsetX, y: e.offsetY }];
+    redoStack.length = 0;
     drawing.push(newStroke);
   });
 
@@ -80,12 +82,38 @@ function initUI(): void {
     canvas.dispatchEvent(new Event("drawing-changed"));
   });
 
+  const buttonContainer = document.createElement("div");
+  buttonContainer.style.marginTop = "10px";
+
   const clearButton = document.createElement("button");
-  clearButton.innerHTML = "clear";
-  document.body.append(clearButton);
+  clearButton.textContent = "Clear";
+
+  const undoButton = document.createElement("button");
+  undoButton.textContent = "Undo";
+
+  const redoButton = document.createElement("button");
+  redoButton.textContent = "Redo";
+
+  buttonContainer.append(clearButton, undoButton, redoButton);
+  document.body.append(buttonContainer);
 
   clearButton.addEventListener("click", () => {
     drawing.length = 0;
+    redoStack.length = 0;
+    canvas.dispatchEvent(new Event("drawing-changed"));
+  });
+
+  undoButton.addEventListener("click", () => {
+    if (drawing.length === 0) return;
+    const undone = drawing.pop();
+    if (undone) redoStack.push(undone);
+    canvas.dispatchEvent(new Event("drawing-changed"));
+  });
+
+  redoButton.addEventListener("click", () => {
+    if (redoStack.length === 0) return;
+    const restored = redoStack.pop();
+    if (restored) drawing.push(restored);
     canvas.dispatchEvent(new Event("drawing-changed"));
   });
 }
