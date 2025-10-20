@@ -5,3 +5,9 @@
   display: block;
   margin: 1em auto;
 }
+
+.selectedTool {
+  background-color: #ff6fbe81;
+  color: white;
+  border: 2px solid #000000;
+}

@@ -15,9 +15,11 @@ interface DisplayCommand {
 
 class MarkerLine implements DisplayCommand {
   private points: Point[] = [];
+  private thickness: number;
 
-  constructor(start: Point) {
+  constructor(start: Point, thickness: number) {
     this.points.push(start);
+    this.thickness = thickness;
   }
 
   drag(x: number, y: number) {
@@ -40,6 +42,7 @@ class MarkerLine implements DisplayCommand {
       ctx.lineTo(p.x, p.y);
     }
 
+    ctx.lineWidth = this.thickness;
     ctx.stroke();
   }
 }
@@ -90,7 +93,10 @@ function initUI(): void {
 
   canvas.addEventListener("mousedown", (e: MouseEvent) => {
     cursor.active = true;
-    const newLine = new MarkerLine({ x: e.offsetX, y: e.offsetY });
+    const newLine = new MarkerLine(
+      { x: e.offsetX, y: e.offsetY },
+      currentThickness,
+    );
     drawing.push(newLine);
     redoStack.length = 0;
   });
@@ -107,6 +113,33 @@ function initUI(): void {
       canvas.dispatchEvent(new Event("drawing-changed"));
     }
   });
+
+  let currentThickness = 2;
+
+  const thinButton = document.createElement("button");
+  thinButton.textContent = "Thin Marker";
+
+  const thickButton = document.createElement("button");
+  thickButton.textContent = "Thick Marker";
+
+  function updateSelectedTool(selected: HTMLElement) {
+    for (const btn of [thinButton, thickButton]) {
+      btn.classList.toggle("selectedTool", btn === selected);
+    }
+  }
+
+  thinButton.addEventListener("click", () => {
+    currentThickness = 2;
+    updateSelectedTool(thinButton);
+  });
+
+  thickButton.addEventListener("click", () => {
+    currentThickness = 6;
+    updateSelectedTool(thickButton);
+  });
+
+  document.body.append(thinButton, thickButton);
+  updateSelectedTool(thinButton);
 
   const buttonContainer = document.createElement("div");
   buttonContainer.style.marginTop = "10px";
