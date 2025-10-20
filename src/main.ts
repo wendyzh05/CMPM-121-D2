@@ -9,6 +9,8 @@ const cursor: Cursor = { active: false, x: 0, y: 0 };
 const drawing: Drawing = [];
 const redoStack: Drawing = [];
 
+let toolPreview: ToolPreview | null = null;
+
 interface DisplayCommand {
   display(ctx: CanvasRenderingContext2D): void;
 }
@@ -47,6 +49,28 @@ class MarkerLine implements DisplayCommand {
   }
 }
 
+class ToolPreview implements DisplayCommand {
+  constructor(
+    private x: number,
+    private y: number,
+    private thickness: number,
+  ) {}
+
+  update(x: number, y: number, thickness: number): void {
+    this.x = x;
+    this.y = y;
+    this.thickness = thickness;
+  }
+
+  display(ctx: CanvasRenderingContext2D): void {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
+    ctx.strokeStyle = "gray"; // light outline
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
 function createAppTitle(titleText: string): HTMLElement {
   const title = document.createElement("h1");
   title.textContent = titleText;
@@ -69,6 +93,9 @@ function redrawCanvas(ctx: CanvasRenderingContext2D, drawing: Drawing) {
   for (const cmd of drawing) {
     cmd.display(ctx);
   }
+  if (!cursor.active && toolPreview) {
+    toolPreview.display(ctx);
+  }
 }
 
 function initUI(): void {
@@ -82,6 +109,10 @@ function initUI(): void {
   if (!ctx) throw new Error("Failed to get 2D context");
 
   canvas.addEventListener("drawing-changed", () => {
+    redrawCanvas(ctx, drawing);
+  });
+
+  canvas.addEventListener("tool-moved", () => {
     redrawCanvas(ctx, drawing);
   });
 
@@ -106,11 +137,20 @@ function initUI(): void {
   });
 
   canvas.addEventListener("mousemove", (e: MouseEvent) => {
-    if (!cursor.active) return;
-    const current = drawing[drawing.length - 1];
-    if (current instanceof MarkerLine) {
-      current.drag(e.offsetX, e.offsetY);
-      canvas.dispatchEvent(new Event("drawing-changed"));
+    if (!toolPreview) {
+      toolPreview = new ToolPreview(e.offsetX, e.offsetY, currentThickness);
+    } else {
+      toolPreview.update(e.offsetX, e.offsetY, currentThickness);
+    }
+
+    canvas.dispatchEvent(new Event("tool-moved"));
+
+    if (cursor.active) {
+      const current = drawing[drawing.length - 1];
+      if (current instanceof MarkerLine) {
+        current.drag(e.offsetX, e.offsetY);
+        canvas.dispatchEvent(new Event("drawing-changed"));
+      }
     }
   });
 
