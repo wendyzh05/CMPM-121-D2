@@ -10,6 +10,7 @@ const drawing: Drawing = [];
 const redoStack: Drawing = [];
 
 let toolPreview: ToolPreview | null = null;
+let currentSticker: string | null = null;
 
 interface DisplayCommand {
   display(ctx: CanvasRenderingContext2D): void;
@@ -49,10 +50,39 @@ class MarkerLine implements DisplayCommand {
   }
 }
 
+class StickerCommand implements DisplayCommand {
+  private x: number;
+  private y: number;
+  private sticker: string;
+  private size: number;
+
+  constructor(x: number, y: number, sticker: string, size: number = 32) {
+    this.x = x;
+    this.y = y;
+    this.sticker = sticker;
+    this.size = size;
+  }
+
+  drag(x: number, y: number): void {
+    // Move the sticker rather than drawing a trail
+    this.x = x;
+    this.y = y;
+  }
+
+  display(ctx: CanvasRenderingContext2D): void {
+    ctx.save();
+    ctx.font = `${this.size}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(this.sticker, this.x, this.y);
+    ctx.restore();
+  }
+}
+
 class ToolPreview implements DisplayCommand {
   constructor(
-    private x: number,
-    private y: number,
+    public x: number,
+    public y: number,
     private thickness: number,
   ) {}
 
@@ -88,13 +118,18 @@ function createDrawingCanvas(width: number, height: number): HTMLCanvasElement {
 function redrawCanvas(ctx: CanvasRenderingContext2D, drawing: Drawing) {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.strokeStyle = "black";
-  ctx.lineWidth = 2;
 
-  for (const cmd of drawing) {
-    cmd.display(ctx);
-  }
+  for (const cmd of drawing) cmd.display(ctx);
+
   if (!cursor.active && toolPreview) {
-    toolPreview.display(ctx);
+    if (currentSticker) {
+      ctx.font = "32px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(currentSticker, toolPreview.x, toolPreview.y);
+    } else {
+      toolPreview.display(ctx);
+    }
   }
 }
 
@@ -124,6 +159,19 @@ function initUI(): void {
 
   canvas.addEventListener("mousedown", (e: MouseEvent) => {
     cursor.active = true;
+
+    if (currentSticker) {
+      const newSticker = new StickerCommand(
+        e.offsetX,
+        e.offsetY,
+        currentSticker,
+      );
+      drawing.push(newSticker);
+      redoStack.length = 0;
+      canvas.dispatchEvent(new Event("drawing-changed"));
+      return;
+    }
+
     const newLine = new MarkerLine(
       { x: e.offsetX, y: e.offsetY },
       currentThickness,
@@ -147,6 +195,11 @@ function initUI(): void {
 
     if (cursor.active) {
       const current = drawing[drawing.length - 1];
+      if (currentSticker && current instanceof StickerCommand) {
+        current.drag(e.offsetX, e.offsetY);
+        canvas.dispatchEvent(new Event("drawing-changed"));
+        return;
+      }
       if (current instanceof MarkerLine) {
         current.drag(e.offsetX, e.offsetY);
         canvas.dispatchEvent(new Event("drawing-changed"));
@@ -170,11 +223,13 @@ function initUI(): void {
 
   thinButton.addEventListener("click", () => {
     currentThickness = 2;
+    currentSticker = null;
     updateSelectedTool(thinButton);
   });
 
   thickButton.addEventListener("click", () => {
     currentThickness = 6;
+    currentSticker = null;
     updateSelectedTool(thickButton);
   });
 
@@ -215,5 +270,32 @@ function initUI(): void {
     if (restored) drawing.push(restored);
     canvas.dispatchEvent(new Event("drawing-changed"));
   });
+
+  const stickerContainer = document.createElement("div");
+  stickerContainer.style.marginTop = "10px";
+
+  const stickers = ["🎀", "🌸", "💗"];
+  const stickerButtons: HTMLButtonElement[] = [];
+
+  for (const emoji of stickers) {
+    const btn = document.createElement("button");
+    btn.textContent = emoji;
+    btn.style.fontSize = "24px";
+
+    btn.addEventListener("click", () => {
+      currentSticker = emoji;
+      updateSelectedTool(btn);
+      if (toolPreview) {
+        toolPreview = new ToolPreview(0, 0, 0); // clear circle preview
+      }
+      // Trigger UI refresh
+      canvas.dispatchEvent(new Event("tool-moved"));
+    });
+
+    stickerButtons.push(btn);
+    stickerContainer.appendChild(btn);
+  }
+
+  document.body.append(stickerContainer);
 }
 initUI();
