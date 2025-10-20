@@ -274,28 +274,40 @@ function initUI(): void {
   const stickerContainer = document.createElement("div");
   stickerContainer.style.marginTop = "10px";
 
-  const stickers = ["🎀", "🌸", "💗"];
-  const stickerButtons: HTMLButtonElement[] = [];
+  const stickers: string[] = ["🎀", "🌸", "💗"];
 
-  for (const emoji of stickers) {
-    const btn = document.createElement("button");
-    btn.textContent = emoji;
-    btn.style.fontSize = "24px";
+  function renderStickerButtons() {
+    stickerContainer.innerHTML = "";
 
-    btn.addEventListener("click", () => {
-      currentSticker = emoji;
-      updateSelectedTool(btn);
-      if (toolPreview) {
-        toolPreview = new ToolPreview(0, 0, 0); // clear circle preview
+    for (const emoji of stickers) {
+      const btn = document.createElement("button");
+      btn.textContent = emoji;
+      btn.style.fontSize = "24px";
+
+      btn.addEventListener("click", () => {
+        currentSticker = emoji;
+        updateSelectedTool(btn);
+        if (toolPreview) toolPreview = new ToolPreview(0, 0, 0); // clear circle preview
+        canvas.dispatchEvent(new Event("tool-moved"));
+      });
+
+      stickerContainer.appendChild(btn);
+    }
+
+    const addStickerButton = document.createElement("button");
+    addStickerButton.textContent = "➕ Add Sticker";
+    addStickerButton.addEventListener("click", () => {
+      const newSticker = prompt("Custom sticker text:", "🧽");
+      if (newSticker && newSticker.trim() !== "") {
+        stickers.push(newSticker.trim());
+        renderStickerButtons(); // re-render buttons dynamically
       }
-      // Trigger UI refresh
-      canvas.dispatchEvent(new Event("tool-moved"));
     });
 
-    stickerButtons.push(btn);
-    stickerContainer.appendChild(btn);
+    stickerContainer.appendChild(addStickerButton);
   }
 
+  renderStickerButtons();
   document.body.append(stickerContainer);
 }
 initUI();
