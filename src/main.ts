@@ -1,14 +1,48 @@
 import "./style.css";
 
 type Point = { x: number; y: number };
-type Stroke = Point[];
-type Drawing = Stroke[];
+type Drawing = DisplayCommand[];
 
 type Cursor = { active: boolean; x: number; y: number };
 const cursor: Cursor = { active: false, x: 0, y: 0 };
 
 const drawing: Drawing = [];
 const redoStack: Drawing = [];
+
+interface DisplayCommand {
+  display(ctx: CanvasRenderingContext2D): void;
+}
+
+class MarkerLine implements DisplayCommand {
+  private points: Point[] = [];
+
+  constructor(start: Point) {
+    this.points.push(start);
+  }
+
+  drag(x: number, y: number) {
+    this.points.push({ x, y });
+  }
+
+  display(ctx: CanvasRenderingContext2D): void {
+    if (this.points.length === 0) return; // nothing to draw
+
+    ctx.beginPath();
+
+    const first = this.points[0];
+    if (!first) return; // type guard for TS safety
+
+    ctx.moveTo(first.x, first.y);
+
+    for (let i = 1; i < this.points.length; i++) {
+      const p = this.points[i];
+      if (!p) continue;
+      ctx.lineTo(p.x, p.y);
+    }
+
+    ctx.stroke();
+  }
+}
 
 function createAppTitle(titleText: string): HTMLElement {
   const title = document.createElement("h1");
@@ -29,17 +63,8 @@ function redrawCanvas(ctx: CanvasRenderingContext2D, drawing: Drawing) {
   ctx.strokeStyle = "black";
   ctx.lineWidth = 2;
 
-  for (const stroke of drawing) {
-    const [first, ...rest] = stroke;
-    if (!first) continue;
-    if (rest.length === 0) continue;
-
-    ctx.beginPath();
-    ctx.moveTo(first.x, first.y);
-    for (const p of rest) {
-      ctx.lineTo(p.x, p.y);
-    }
-    ctx.stroke();
+  for (const cmd of drawing) {
+    cmd.display(ctx);
   }
 }
 
@@ -65,9 +90,9 @@ function initUI(): void {
 
   canvas.addEventListener("mousedown", (e: MouseEvent) => {
     cursor.active = true;
-    const newStroke: Stroke = [{ x: e.offsetX, y: e.offsetY }];
+    const newLine = new MarkerLine({ x: e.offsetX, y: e.offsetY });
+    drawing.push(newLine);
     redoStack.length = 0;
-    drawing.push(newStroke);
   });
 
   canvas.addEventListener("mouseup", () => {
@@ -76,10 +101,11 @@ function initUI(): void {
 
   canvas.addEventListener("mousemove", (e: MouseEvent) => {
     if (!cursor.active) return;
-    const currentStroke = drawing[drawing.length - 1];
-    if (!currentStroke) return;
-    currentStroke.push({ x: e.offsetX, y: e.offsetY });
-    canvas.dispatchEvent(new Event("drawing-changed"));
+    const current = drawing[drawing.length - 1];
+    if (current instanceof MarkerLine) {
+      current.drag(e.offsetX, e.offsetY);
+      canvas.dispatchEvent(new Event("drawing-changed"));
+    }
   });
 
   const buttonContainer = document.createElement("div");
