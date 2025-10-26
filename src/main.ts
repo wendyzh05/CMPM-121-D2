@@ -69,7 +69,6 @@ class StickerCommand implements DisplayCommand {
   }
 
   drag(x: number, y: number): void {
-    // Move the sticker rather than drawing a trail
     this.x = x;
     this.y = y;
   }
@@ -100,7 +99,7 @@ class ToolPreview implements DisplayCommand {
   display(ctx: CanvasRenderingContext2D): void {
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.thickness / 2, 0, Math.PI * 2);
-    ctx.strokeStyle = "gray"; // light outline
+    ctx.strokeStyle = "gray";
     ctx.lineWidth = 1;
     ctx.stroke();
   }
@@ -143,8 +142,8 @@ function initUI(): void {
   app.id = "app";
   document.body.appendChild(app);
 
-  const title = createAppTitle("Sticker Sketchpad");
-  const canvas = createDrawingCanvas(256, 256);
+  const title = createAppTitle("⟡˖ ࣪ Sticker Sketchpad ⟡˖ ࣪");
+  const canvas = createDrawingCanvas(386, 336);
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Failed to get 2D context");
 
