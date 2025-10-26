@@ -12,6 +12,11 @@ const redoStack: Drawing = [];
 let toolPreview: ToolPreview | null = null;
 let currentSticker: string | null = null;
 
+const exportButton = document.createElement("button");
+exportButton.textContent = "Export PNG";
+exportButton.style.display = "block";
+exportButton.style.marginTop = "10px";
+
 interface DisplayCommand {
   display(ctx: CanvasRenderingContext2D): void;
 }
@@ -307,7 +312,27 @@ function initUI(): void {
     stickerContainer.appendChild(addStickerButton);
   }
 
+  exportButton.addEventListener("click", () => {
+    const exportCanvas = document.createElement("canvas");
+    exportCanvas.width = 1024;
+    exportCanvas.height = 1024;
+
+    const exportCtx = exportCanvas.getContext("2d");
+    if (!exportCtx) return;
+
+    const scaleFactor = exportCanvas.width / canvas.width;
+    exportCtx.scale(scaleFactor, scaleFactor);
+    for (const cmd of drawing) {
+      cmd.display(exportCtx);
+    }
+
+    const anchor = document.createElement("a");
+    anchor.href = exportCanvas.toDataURL("image/png");
+    anchor.download = "sketchpad.png";
+    anchor.click();
+  });
+
   renderStickerButtons();
-  document.body.append(stickerContainer);
+  document.body.append(stickerContainer, exportButton);
 }
 initUI();
