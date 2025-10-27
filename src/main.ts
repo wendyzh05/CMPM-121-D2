@@ -11,6 +11,7 @@ const redoStack: Drawing = [];
 
 let toolPreview: ToolPreview | null = null;
 let currentSticker: string | null = null;
+let currentColor = "#000000";
 
 const exportButton = document.createElement("button");
 exportButton.textContent = "Export PNG";
@@ -24,10 +25,12 @@ interface DisplayCommand {
 class MarkerLine implements DisplayCommand {
   private points: Point[] = [];
   private thickness: number;
+  private color: string;
 
-  constructor(start: Point, thickness: number) {
+  constructor(start: Point, thickness: number, color: string) {
     this.points.push(start);
     this.thickness = thickness;
+    this.color = color;
   }
 
   drag(x: number, y: number) {
@@ -35,12 +38,12 @@ class MarkerLine implements DisplayCommand {
   }
 
   display(ctx: CanvasRenderingContext2D): void {
-    if (this.points.length === 0) return; // nothing to draw
+    if (this.points.length === 0) return;
 
     ctx.beginPath();
 
     const first = this.points[0];
-    if (!first) return; // type guard for TS safety
+    if (!first) return;
 
     ctx.moveTo(first.x, first.y);
 
@@ -51,6 +54,7 @@ class MarkerLine implements DisplayCommand {
     }
 
     ctx.lineWidth = this.thickness;
+    ctx.strokeStyle = this.color;
     ctx.stroke();
   }
 }
@@ -179,6 +183,7 @@ function initUI(): void {
     const newLine = new MarkerLine(
       { x: e.offsetX, y: e.offsetY },
       currentThickness,
+      currentColor,
     );
     drawing.push(newLine);
     redoStack.length = 0;
@@ -331,7 +336,17 @@ function initUI(): void {
     anchor.click();
   });
 
+  const colorPicker = document.createElement("input");
+  colorPicker.type = "color";
+  colorPicker.value = currentColor;
+  colorPicker.style.marginLeft = "10px";
+  colorPicker.title = "Choose marker color";
+  colorPicker.addEventListener("input", () => {
+    currentColor = colorPicker.value;
+    canvas.dispatchEvent(new Event("tool-moved"));
+  });
+
   renderStickerButtons();
-  document.body.append(stickerContainer, exportButton);
+  document.body.append(stickerContainer, exportButton, colorPicker);
 }
 initUI();
